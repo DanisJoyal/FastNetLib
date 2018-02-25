@@ -1,7 +1,7 @@
 # FastNetLib 
 
 Fast reliable UDP library for .NET Framework 3.5, Mono, .NET Core 2.0, .NET Standart 2.0.
-Based on https://github.com/RevenantX/FastNetLib
+Based on https://github.com/RevenantX/LiteNetLib
 Try to be as fast as Enet with a lot of optimization that changed the behavior of the base lib.
 
 ## Build
@@ -22,7 +22,7 @@ Try to be as fast as Enet with a lot of optimization that changed the behavior o
   * Ordered but unreliable with duplication prevention
   * Simple UDP packets without order and reliability
 * Multichannel support
-* Fast packet serializer [(Usage manual)](https://github.com/RevenantX/FastNetLib/wiki/NetSerializer-usage)
+* Fast packet serializer [(Usage manual)](https://github.com/RevenantX/LiteNetLib/wiki/NetSerializer-usage)
 * Automatic small packets merging ( if enabled )
 * Automatic fragmentation of reliable packets
 * Automatic MTU detection
