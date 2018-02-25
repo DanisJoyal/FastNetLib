@@ -92,42 +92,45 @@ namespace FastNetLib
             NetUtils.DebugWrite("[PA]AcksStart: {0}", ackWindowStart);
             //Monitor.Enter(_pendingPackets);
 
-            for (int idx = 0; idx < packet.GetDataSize() * 8; ++idx)
+            for (int i = 0; i < packet.GetDataSize(); ++i)
             {
-                int currentByte = idx / BitsInByte;
-                int currentBit = idx % BitsInByte;
-                if ((acksData[currentByte] & (1 << currentBit)) == 0)
+                byte acksByte = acksData[i];
+                for (int idx = 0; idx < 8; ++idx)
                 {
-                    // Packet not ack, will be resent automaticaly as needed
-                    continue;
-                }
-
-                // packet acknowledged = true
-                int seqAck = NetUtils.IncrementSequenceNumber(ackWindowStart, idx);
-
-                PendingPacket pendingPacket = _tailPendingPacket;
-                PendingPacket prevPacket = null;
-                while (pendingPacket != _headPendingPacket)
-                {
-                    // Looking for the packet to acknowledge
-                    if (pendingPacket.Packet == null || pendingPacket.Packet.Sequence != seqAck)
+                    int currentBit = idx % BitsInByte;
+                    if ((acksByte & (1 << currentBit)) == 0)
                     {
-                        prevPacket = pendingPacket;
-                        pendingPacket = pendingPacket.Next;
+                        // Packet not ack, will be resent automaticaly as needed
                         continue;
                     }
 
-                    //clear acked packet
-                    pendingPacket.Packet.DontRecycleNow = false;
-                    pendingPacket.Packet.Recycle();
-                    pendingPacket.Clear();
+                    // packet acknowledged = true
+                    int seqAck = NetUtils.IncrementSequenceNumber(ackWindowStart, idx);
 
-                    // Packet found, remove it from the list
-                    while(_tailPendingPacket.Packet == null && _tailPendingPacket != _headPendingPacket)
-                        _tailPendingPacket = _tailPendingPacket.Next;
+                    PendingPacket pendingPacket = _tailPendingPacket;
+                    PendingPacket prevPacket = null;
+                    while (pendingPacket != _headPendingPacket)
+                    {
+                        // Looking for the packet to acknowledge
+                        if (pendingPacket.Packet == null || pendingPacket.Packet.Sequence != seqAck)
+                        {
+                            prevPacket = pendingPacket;
+                            pendingPacket = pendingPacket.Next;
+                            continue;
+                        }
 
-                    NetUtils.DebugWrite("[PA]Removing reliableInOrder ack: {0} - true", seqAck);
-                    break;
+                        //clear acked packet
+                        pendingPacket.Packet.DontRecycleNow = false;
+                        pendingPacket.Packet.Recycle();
+                        pendingPacket.Clear();
+
+                        // Packet found, remove it from the list
+                        while (_tailPendingPacket.Packet == null && _tailPendingPacket != _headPendingPacket)
+                            _tailPendingPacket = _tailPendingPacket.Next;
+
+                        NetUtils.DebugWrite("[PA]Removing reliableInOrder ack: {0} - true", seqAck);
+                        break;
+                    }
                 }
             }
             packet.Recycle();
