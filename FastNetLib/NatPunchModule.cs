@@ -210,7 +210,7 @@ namespace FastNetLib
 
         internal void ProcessMessage(NetEndPoint senderEndPoint, NetPacket packet)
         {
-            var dr = new NetDataReader(packet);
+            var dr = new NetDataReader(_netBase.CreateNetBuffer(packet));
             switch (packet.Property)
             {
                 case PacketProperty.NatIntroductionRequest:

@@ -3,119 +3,109 @@ using System.Text;
 
 namespace FastNetLib.Utils
 {
+    public class NetDataReaderException : ArgumentException
+    {
+        public NetDataReaderException() { }
+
+        public NetDataReaderException(string message) : base(message) { }
+
+        public NetDataReaderException(string message, Exception innerException) : base(message, innerException) { }
+    }
+
     public class NetDataReader
     {
-        protected byte[] _data;
-        protected int _position;
-        protected int _dataSize;
-        private NetPacket _packet;
+        private NetBuffer _buffer;
 
-        public byte[] Data
-        {
-            get { return _data; }
-        }
-        
-        public int Length { get { return _dataSize; } }
+        public int Length { get { return _buffer.Length; } }
 
         public int Position
         {
-            get { return _position; }
+            get { return _buffer.Tell; }
         }
 
         public bool EndOfData
         {
-            get { return _position == _dataSize; }
+            get { return _buffer.Tell == _buffer.Length; }
         }
 
         public int AvailableBytes
         {
-            get { return _dataSize - _position; }
+            get { return _buffer.AvailableBytes; }
         }
 
         public void SetSource(NetDataWriter dataWriter)
         {
             Clear();
-            _data = dataWriter.Data;
-            _position = 0;
-            _dataSize = dataWriter.Length;
-            _packet = null;
+            //_data = dataWriter.Data;
+            //_position = 0;
+            //_dataSize = dataWriter.Length;
+            //_packet = null;
         }
 
-        public void SetSource(byte[] source)
+        public void SetSource(NetBuffer buffer)
         {
             Clear();
-            _data = source;
-            _position = 0;
-            _dataSize = source.Length;
-            _packet = null;
+            _buffer = buffer;
+            _buffer.DontRecycleNow = true;
         }
 
-        public void SetSource(byte[] source, int offset)
-        {
-            Clear();
-            _data = source;
-            _position = offset;
-            _dataSize = source.Length;
-            _packet = null;
-        }
+        //internal void SetSource(byte[] source)
+        //{
+        //    Clear();
+        //    _buffer.Put(source, 0, source.Length);
+        //}
 
-        public void SetSource(byte[] source, int offset, int maxSize)
-        {
-            Clear();
-            _data = source;
-            _position = offset;
-            _dataSize = maxSize;
-            _packet = null;
-        }
+        //internal void SetSource(byte[] source, int offset)
+        //{
+        //    Clear();
+        //    _buffer.Put(source, 0, source.Length);
+        //}
 
-        internal void SetSource(NetPacket packet)
-        {
-            Clear();
-            //if (packet.GetDataSize() > 0)
-            //{
-            //    // Temp size on BenchmarkNet
-            //    _data = new byte[packet.GetDataSize()];
-            //    Array.Copy(packet.RawData, _data, packet.GetDataSize());
-            //}
-            _data = packet.RawData;
-            _position = 0;
-            _dataSize = packet.GetDataSize();
-            _packet = packet;
-            _packet.DontRecycleNow = true;
-        }
+        //internal void SetSource(byte[] source, int offset, int maxSize)
+        //{
+        //    Clear();
+        //    _buffer.Put(source, 0, source.Length);
+        //}
+
+        //internal void SetSource(NetPacket packet)
+        //{
+        //    Clear();
+        //    _buffer.DontRecycleNow = false;
+        //    _buffer.Recycle();
+        //}
 
         /// <summary>
         /// Clone NetDataReader without data copy (usable for OnReceive)
         /// </summary>
         /// <returns>new NetDataReader instance</returns>
-        public NetDataReader Clone()
-        {
-            return new NetDataReader(_data, _position, _dataSize);
-        }
+        //public NetDataReader Clone()
+        //{
+        //    return new NetDataReader(_data, _position, _dataSize);
+        //}
 
         public NetDataReader()
         {
 
         }
 
-        public NetDataReader(byte[] source)
-        {
-            SetSource(source);
-        }
+        //public NetDataReader(byte[] source)
+        //{
+        //    SetSource(source);
+        //}
 
-        public NetDataReader(byte[] source, int offset)
-        {
-            SetSource(source, offset);
-        }
+        //public NetDataReader(byte[] source, int offset)
+        //{
+        //    SetSource(source, offset);
+        //}
 
-        public NetDataReader(byte[] source, int offset, int maxSize)
-        {
-            SetSource(source, offset, maxSize);
-        }
+        //public NetDataReader(byte[] source, int offset, int maxSize)
+        //{
+        //    SetSource(source, offset, maxSize);
+        //}
 
-        internal NetDataReader(NetPacket packet)
+        internal NetDataReader(NetBuffer buffer)
         {
-            SetSource(packet);
+            SetSource(buffer);
         }
 
         #region GetMethods
@@ -128,22 +118,28 @@ namespace FastNetLib.Utils
 
         public byte GetByte()
         {
-            byte res = _data[_position];
-            _position += 1;
+            if (_buffer.ValidateRead(1) == false)
+                throw new NetDataReaderException("End of buffer");
+            byte res = _buffer.ReadData[_buffer.ReadPosition];
+            _buffer.ReadPosition += 1;
             return res;
         }
 
         public sbyte GetSByte()
         {
-            var b = (sbyte)_data[_position];
-            _position++;
+            if (_buffer.ValidateRead(1) == false)
+                throw new NetDataReaderException("End of buffer");
+            var b = (sbyte)_buffer.ReadData[_buffer.ReadPosition];
+            _buffer.ReadPosition++;
             return b;
         }
 
         public bool[] GetBoolArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new bool[size];
             for (int i = 0; i < size; i++)
             {
@@ -154,8 +150,10 @@ namespace FastNetLib.Utils
 
         public ushort[] GetUShortArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new ushort[size];
             for (int i = 0; i < size; i++)
             {
@@ -166,8 +164,10 @@ namespace FastNetLib.Utils
 
         public short[] GetShortArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new short[size];
             for (int i = 0; i < size; i++)
             {
@@ -178,8 +178,10 @@ namespace FastNetLib.Utils
 
         public long[] GetLongArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new long[size];
             for (int i = 0; i < size; i++)
             {
@@ -190,8 +192,10 @@ namespace FastNetLib.Utils
 
         public ulong[] GetULongArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new ulong[size];
             for (int i = 0; i < size; i++)
             {
@@ -202,8 +206,10 @@ namespace FastNetLib.Utils
 
         public int[] GetIntArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new int[size];
             for (int i = 0; i < size; i++)
             {
@@ -214,8 +220,10 @@ namespace FastNetLib.Utils
 
         public uint[] GetUIntArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new uint[size];
             for (int i = 0; i < size; i++)
             {
@@ -226,8 +234,10 @@ namespace FastNetLib.Utils
 
         public float[] GetFloatArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new float[size];
             for (int i = 0; i < size; i++)
             {
@@ -238,8 +248,10 @@ namespace FastNetLib.Utils
 
         public double[] GetDoubleArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new double[size];
             for (int i = 0; i < size; i++)
             {
@@ -250,8 +262,10 @@ namespace FastNetLib.Utils
 
         public string[] GetStringArray()
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new string[size];
             for (int i = 0; i < size; i++)
             {
@@ -262,8 +276,10 @@ namespace FastNetLib.Utils
 
         public string[] GetStringArray(int maxStringLength)
         {
-            ushort size = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort size = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             var arr = new string[size];
             for (int i = 0; i < size; i++)
             {
@@ -274,71 +290,91 @@ namespace FastNetLib.Utils
 
         public bool GetBool()
         {
-            bool res = _data[_position] > 0;
-            _position += 1;
+            if (_buffer.ValidateRead(1) == false)
+                throw new NetDataReaderException("End of buffer");
+            bool res = _buffer.ReadData[_buffer.ReadPosition] > 0;
+            _buffer.ReadPosition += 1;
             return res;
         }
 
         public char GetChar()
         {
-            char result = BitConverter.ToChar(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(1) == false)
+                throw new NetDataReaderException("End of buffer");
+            char result = BitConverter.ToChar(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 1;
             return result;
         }
 
         public ushort GetUShort()
         {
-            ushort result = BitConverter.ToUInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            ushort result = BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             return result;
         }
 
         public short GetShort()
         {
-            short result = BitConverter.ToInt16(_data, _position);
-            _position += 2;
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            short result = BitConverter.ToInt16(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 2;
             return result;
         }
 
         public long GetLong()
         {
-            long result = BitConverter.ToInt64(_data, _position);
-            _position += 8;
+            if (_buffer.ValidateRead(8) == false)
+                throw new NetDataReaderException("End of buffer");
+            long result = BitConverter.ToInt64(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 8;
             return result;
         }
 
         public ulong GetULong()
         {
-            ulong result = BitConverter.ToUInt64(_data, _position);
-            _position += 8;
+            if (_buffer.ValidateRead(8) == false)
+                throw new NetDataReaderException("End of buffer");
+            ulong result = BitConverter.ToUInt64(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 8;
             return result;
         }
 
         public int GetInt()
         {
-            int result = BitConverter.ToInt32(_data, _position);
-            _position += 4;
+            if (_buffer.ValidateRead(4) == false)
+                throw new NetDataReaderException("End of buffer");
+            int result = BitConverter.ToInt32(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 4;
             return result;
         }
 
         public uint GetUInt()
         {
-            uint result = BitConverter.ToUInt32(_data, _position);
-            _position += 4;
+            if (_buffer.ValidateRead(4) == false)
+                throw new NetDataReaderException("End of buffer");
+            uint result = BitConverter.ToUInt32(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 4;
             return result;
         }
 
         public float GetFloat()
         {
-            float result = BitConverter.ToSingle(_data, _position);
-            _position += 4;
+            if (_buffer.ValidateRead(4) == false)
+                throw new NetDataReaderException("End of buffer");
+            float result = BitConverter.ToSingle(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 4;
             return result;
         }
 
         public double GetDouble()
         {
-            double result = BitConverter.ToDouble(_data, _position);
-            _position += 8;
+            if (_buffer.ValidateRead(8) == false)
+                throw new NetDataReaderException("End of buffer");
+            double result = BitConverter.ToDouble(_buffer.ReadData, _buffer.ReadPosition);
+            _buffer.ReadPosition += 8;
             return result;
         }
 
@@ -350,14 +386,16 @@ namespace FastNetLib.Utils
                 return string.Empty;
             }
 
-            int charCount = Encoding.UTF8.GetCharCount(_data, _position, bytesCount);
+            if (_buffer.ValidateRead(bytesCount) == false)
+                throw new NetDataReaderException("End of buffer");
+            int charCount = Encoding.UTF8.GetCharCount(_buffer.ReadData, _buffer.ReadPosition, bytesCount);
             if (charCount > maxLength)
             {
                 return string.Empty;
             }
 
-            string result = Encoding.UTF8.GetString(_data, _position, bytesCount);
-            _position += bytesCount;
+            string result = Encoding.UTF8.GetString(_buffer.ReadData, _buffer.ReadPosition, bytesCount);
+            _buffer.ReadPosition += bytesCount;
             return result;
         }
 
@@ -369,37 +407,39 @@ namespace FastNetLib.Utils
                 return string.Empty;
             }
 
-            string result = Encoding.UTF8.GetString(_data, _position, bytesCount);
-            _position += bytesCount;
+            if (_buffer.ValidateRead(bytesCount) == false)
+                throw new NetDataReaderException("End of buffer");
+            string result = Encoding.UTF8.GetString(_buffer.ReadData, _buffer.ReadPosition, bytesCount);
+            _buffer.ReadPosition += bytesCount;
             return result;
         }
 
         public byte[] GetRemainingBytes()
         {
             byte[] outgoingData = new byte[AvailableBytes];
-            Buffer.BlockCopy(_data, _position, outgoingData, 0, AvailableBytes);
-            _position = _data.Length;
+            if(_buffer.Get(outgoingData, 0, AvailableBytes) == false)
+                throw new NetDataReaderException("Buffer too small");
             return outgoingData;
         }
 
         public void GetRemainingBytes(byte[] destination)
         {
-            Buffer.BlockCopy(_data, _position, destination, 0, AvailableBytes);
-            _position = _data.Length;
+            if(_buffer.Get(destination, 0, AvailableBytes) == false)
+                throw new NetDataReaderException("Buffer too small");
         }
 
-        public void GetBytes(byte[] destination, int lenght)
+        public void GetBytes(byte[] destination, int length)
         {
-            Buffer.BlockCopy(_data, _position, destination, 0, lenght);
-            _position += lenght;
+            if(_buffer.Get(destination, 0, length) == false)
+                throw new NetDataReaderException("Buffer too small");
         }
 
         public byte[] GetBytesWithLength()
         {
             int length = GetInt();
             byte[] outgoingData = new byte[length];
-            Buffer.BlockCopy(_data, _position, outgoingData, 0, length);
-            _position += length;
+            if(_buffer.Get(outgoingData, 0, length) == false)
+                throw new NetDataReaderException("Buffer too small");
             return outgoingData;
         }
         #endregion
@@ -408,106 +448,135 @@ namespace FastNetLib.Utils
 
         public byte PeekByte()
         {
-            return _data[_position];
+            if (_buffer.ValidateRead(1) == false)
+                throw new NetDataReaderException("End of buffer");
+            return _buffer.ReadData[_buffer.ReadPosition];
         }
 
         public sbyte PeekSByte()
         {
-            return (sbyte)_data[_position];
+            if (_buffer.ValidateRead(1) == false)
+                throw new NetDataReaderException("End of buffer");
+            return (sbyte)_buffer.ReadData[_buffer.ReadPosition];
         }
 
         public bool PeekBool()
         {
-            return _data[_position] > 0;
+            if (_buffer.ValidateRead(1) == false)
+                throw new NetDataReaderException("End of buffer");
+            return _buffer.ReadData[_buffer.ReadPosition] > 0;
         }
 
         public char PeekChar()
         {
-            return BitConverter.ToChar(_data, _position);
+            if (_buffer.ValidateRead(1) == false)
+                throw new NetDataReaderException("End of buffer");
+            return BitConverter.ToChar(_buffer.ReadData, _buffer.ReadPosition);
         }
 
         public ushort PeekUShort()
         {
-            return BitConverter.ToUInt16(_data, _position);
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            return BitConverter.ToUInt16(_buffer.ReadData, _buffer.ReadPosition);
         }
 
         public short PeekShort()
         {
-            return BitConverter.ToInt16(_data, _position);
+            if (_buffer.ValidateRead(2) == false)
+                throw new NetDataReaderException("End of buffer");
+            return BitConverter.ToInt16(_buffer.ReadData, _buffer.ReadPosition);
         }
 
         public long PeekLong()
         {
-            return BitConverter.ToInt64(_data, _position);
+            if (_buffer.ValidateRead(8) == false)
+                throw new NetDataReaderException("End of buffer");
+            return BitConverter.ToInt64(_buffer.ReadData, _buffer.ReadPosition);
         }
 
         public ulong PeekULong()
         {
-            return BitConverter.ToUInt64(_data, _position);
+            if (_buffer.ValidateRead(8) == false)
+                throw new NetDataReaderException("End of buffer");
+            return BitConverter.ToUInt64(_buffer.ReadData, _buffer.ReadPosition);
         }
 
         public int PeekInt()
         {
-            return BitConverter.ToInt32(_data, _position);
+            if (_buffer.ValidateRead(4) == false)
+                throw new NetDataReaderException("End of buffer");
+            return BitConverter.ToInt32(_buffer.ReadData, _buffer.ReadPosition);
         }
 
         public uint PeekUInt()
         {
-            return BitConverter.ToUInt32(_data, _position);
+            if (_buffer.ValidateRead(4) == false)
+                throw new NetDataReaderException("End of buffer");
+            return BitConverter.ToUInt32(_buffer.ReadData, _buffer.ReadPosition);
         }
 
         public float PeekFloat()
         {
-            return BitConverter.ToSingle(_data, _position);
+            if (_buffer.ValidateRead(4) == false)
+                throw new NetDataReaderException("End of buffer");
+            return BitConverter.ToSingle(_buffer.ReadData, _buffer.ReadPosition);
         }
 
         public double PeekDouble()
         {
-            return BitConverter.ToDouble(_data, _position);
+            if (_buffer.ValidateRead(8) == false)
+                throw new NetDataReaderException("End of buffer");
+            return BitConverter.ToDouble(_buffer.ReadData, _buffer.ReadPosition);
         }
 
         public string PeekString(int maxLength)
         {
-            int bytesCount = BitConverter.ToInt32(_data, _position);
+            if (_buffer.ValidateRead(4) == false)
+                throw new NetDataReaderException("End of buffer");
+            int bytesCount = BitConverter.ToInt32(_buffer.ReadData, _buffer.ReadPosition);
             if (bytesCount <= 0 || bytesCount > maxLength * 2)
             {
                 return string.Empty;
             }
 
-            int charCount = Encoding.UTF8.GetCharCount(_data, _position + 4, bytesCount);
+            if (_buffer.ValidateRead(4 + bytesCount) == false)
+                throw new NetDataReaderException("End of buffer");
+            int charCount = Encoding.UTF8.GetCharCount(_buffer.ReadData, _buffer.ReadPosition + 4, bytesCount);
             if (charCount > maxLength)
             {
                 return string.Empty;
             }
 
-            string result = Encoding.UTF8.GetString(_data, _position + 4, bytesCount);
+            string result = Encoding.UTF8.GetString(_buffer.ReadData, _buffer.ReadPosition + 4, bytesCount);
             return result;
         }
 
         public string PeekString()
         {
-            int bytesCount = BitConverter.ToInt32(_data, _position);
+            if (_buffer.ValidateRead(4) == false)
+                throw new NetDataReaderException("End of buffer");
+            int bytesCount = BitConverter.ToInt32(_buffer.ReadData, _buffer.ReadPosition);
             if (bytesCount <= 0)
             {
                 return string.Empty;
             }
 
-            string result = Encoding.UTF8.GetString(_data, _position + 4, bytesCount);
+            if (_buffer.ValidateRead(4 + bytesCount) == false)
+                throw new NetDataReaderException("End of buffer");
+            string result = Encoding.UTF8.GetString(_buffer.ReadData, _buffer.ReadPosition + 4, bytesCount);
             return result;
         }
         #endregion
 
         public void Clear()
         {
-            _position = 0;
-            _dataSize = 0;
-            _data = null;
-            if (_packet != null)
+            if (_buffer != null)
             {
-                _packet.DontRecycleNow = false;
-                _packet.Recycle();
+                _buffer.DontRecycleNow = false;
+                _buffer.Recycle();
+                _buffer = null;
             }
-            _packet = null;
         }
     }
 }

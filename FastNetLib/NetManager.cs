@@ -630,6 +630,13 @@ namespace FastNetLib
             return null;
         }
 
+        internal NetBuffer CreateNetBuffer(NetPacket p)
+        {
+            NetBuffer buf = new NetBuffer(NetPacketPool, p.Property, p.GetDataSize(), false, p.GetDataSize());
+            buf.Receive(p);
+            return buf;
+        }
+
         private void DataReceived(byte[] reusableBuffer, int count, NetEndPoint remoteEndPoint)
         {
 #if STATS_ENABLED
@@ -653,7 +660,7 @@ namespace FastNetLib
                     {
                         var netEvent = CreateEvent(NetEventType.DiscoveryRequest);
                         netEvent.RemoteEndPoint = remoteEndPoint;
-                        netEvent.DataReader.SetSource(packet);
+                        netEvent.DataReader.SetSource(CreateNetBuffer(packet));
                         EnqueueEvent(netEvent);
                         packet.Recycle();
                     }
@@ -662,7 +669,7 @@ namespace FastNetLib
                     {
                         var netEvent = CreateEvent(NetEventType.DiscoveryResponse);
                         netEvent.RemoteEndPoint = remoteEndPoint;
-                        netEvent.DataReader.SetSource(packet);
+                        netEvent.DataReader.SetSource(CreateNetBuffer(packet));
                         EnqueueEvent(netEvent);
                         packet.Recycle();
                     }
@@ -672,7 +679,7 @@ namespace FastNetLib
                     {
                         var netEvent = CreateEvent(NetEventType.ReceiveUnconnected);
                         netEvent.RemoteEndPoint = remoteEndPoint;
-                        netEvent.DataReader.SetSource(packet);
+                        netEvent.DataReader.SetSource(CreateNetBuffer(packet));
                         EnqueueEvent(netEvent);
                         packet.Recycle();
                     }
@@ -707,7 +714,9 @@ namespace FastNetLib
                             {
                                 var netEvent = CreateEvent(NetEventType.Disconnect);
                                 netEvent.Peer = netPeer;
-                                netEvent.DataReader.SetSource(packet.RawData, sizeof(long), packet.GetDataSize() - sizeof(long));
+                                NetBuffer buffer = CreateNetBuffer(packet);
+                                buffer.ReadPosition += sizeof(long);
+                                netEvent.DataReader.SetSource(buffer);
                                 netEvent.DisconnectReason = DisconnectReason.RemoteConnectionClose;
                                 EnqueueEvent(netEvent);
                             }
@@ -766,10 +775,11 @@ namespace FastNetLib
                     long connectionId = BitConverter.ToInt64(packet.RawData, sizeof(int));
 
                     // Read data and create request
-                    var reader = new NetDataReader(null, 0, 0);
+                    NetBuffer buffer = CreateNetBuffer(packet);
+                    var reader = new NetDataReader(buffer);
                     if (packet.GetDataSize() > sizeof(int) + sizeof(long))
                     {
-                        reader.SetSource(packet.RawData, sizeof(int) + sizeof(long), packet.GetDataSize() - sizeof(int) - sizeof(long));
+                        buffer.ReadPosition += sizeof(int) + sizeof(long);
                     }
 
                     lock (_connectingPeers)
@@ -793,7 +803,26 @@ namespace FastNetLib
             }
         }
 
-        internal void ReceiveFromPeer(NetPacket packet, NetPeer fromPeer)
+        internal static DeliveryMethod From(PacketProperty property)
+        {
+            switch (property)
+            {
+                case PacketProperty.Unreliable:
+                    return DeliveryMethod.Unreliable;
+                case PacketProperty.ReliableUnordered:
+                    return DeliveryMethod.ReliableUnordered;
+                case PacketProperty.ReliableOrdered:
+                    return DeliveryMethod.ReliableOrdered;
+                case PacketProperty.Sequenced:
+                    return DeliveryMethod.Sequenced;
+                case PacketProperty.ReliableSequenced:
+                    //TODO: netEvent.DeliveryMethod = DeliveryMethod.ReliableSequenced;
+                    break;
+            }
+            return DeliveryMethod.Sequenced;
+        }
+
+        internal void ReceiveFromPeer(NetBuffer buffer, NetPeer fromPeer)
         {
             //NetPeer fromPeer;
             ////lock (_peers)
@@ -806,26 +835,10 @@ namespace FastNetLib
                 var netEvent = CreateEvent(NetEventType.Receive);
                 netEvent.Peer = fromPeer;
                 netEvent.RemoteEndPoint = fromPeer.EndPoint;
-                netEvent.Channel = packet.Channel;
-                switch (packet.Property)
-                {
-                    case PacketProperty.Unreliable:
-                        netEvent.DeliveryMethod = DeliveryMethod.Unreliable;
-                        break;
-                    case PacketProperty.ReliableUnordered:
-                        netEvent.DeliveryMethod = DeliveryMethod.ReliableUnordered;
-                        break;
-                    case PacketProperty.ReliableOrdered:
-                        netEvent.DeliveryMethod = DeliveryMethod.ReliableOrdered;
-                        break;
-                    case PacketProperty.Sequenced:
-                        netEvent.DeliveryMethod = DeliveryMethod.Sequenced;
-                        break;
-                    case PacketProperty.ReliableSequenced:
-                        //TODO: netEvent.DeliveryMethod = DeliveryMethod.ReliableSequenced;
-                        break;
-                }
-                netEvent.DataReader.SetSource(packet);
+                netEvent.Channel = buffer.Channel;
+                netEvent.DeliveryMethod = From(buffer.Property);
+
+                netEvent.DataReader.SetSource(buffer);
                 EnqueueEvent(netEvent);
             }
         }

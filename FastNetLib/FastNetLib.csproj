@@ -44,6 +44,7 @@
   <ItemGroup>
     <Compile Include="FastQueue.cs" />
     <Compile Include="INetEventListener.cs" />
+    <Compile Include="NetBuffer.cs" />
     <Compile Include="NetDebug.cs" />
     <Compile Include="NetExceptions.cs" />
     <Compile Include="NetPacketPool.cs" />

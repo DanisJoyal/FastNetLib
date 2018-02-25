@@ -49,7 +49,6 @@ namespace FastNetLib
         private readonly NetEndPoint _remoteEndPoint;
         private readonly NetManager _netManager;
         private readonly NetPacketPool _packetPool;
-        private readonly object _sendLock = new object();
         private readonly FastQueue<NetPacket> _mergedPackets;
 
         //Channels
@@ -76,7 +75,7 @@ namespace FastNetLib
             public int ReceivedCount;
             public int TotalSize;
         }
-        private ushort _fragmentId;
+        internal ushort _fragmentId;
         private readonly Dictionary<ushort, IncomingFragments> _holdedFragments;
 
         //Merging
@@ -358,6 +357,69 @@ namespace FastNetLib
         }
 
         /// <summary>
+        /// Create a NetBuffer to works with byte. Avoid a copy of bytes array at each send.
+        /// By default, it will auto resize
+        /// </summary>
+        public NetBuffer CreateNetBuffer(DeliveryMethod options)
+        {
+            PacketProperty property = SendOptionsToProperty(options);
+            int headerSize = NetPacket.GetHeaderSize(property);
+            if (options == DeliveryMethod.Sequenced || options == DeliveryMethod.Unreliable)
+            {
+                throw new TooBigPacketException("Unreliable packet size exceeded maximum of " + (_mtu - headerSize) + " bytes");
+            }
+            return new NetBuffer(NetManager.NetPacketPool, property, _mtu, true, 0);
+        }
+
+        /// <summary>
+        /// Create a NetBuffer to works with byte. Avoid a copy of bytes array at each send.
+        /// </summary>
+        /// <param name="maxSize">Set the maximum size of the buffer</param>
+        public NetBuffer CreateNetBuffer(DeliveryMethod options, int maxSize)
+        {
+            PacketProperty property = SendOptionsToProperty(options);
+            int headerSize = NetPacket.GetHeaderSize(property);
+            if (options == DeliveryMethod.Sequenced || options == DeliveryMethod.Unreliable)
+            {
+                throw new TooBigPacketException("Unreliable packet size exceeded maximum of " + (_mtu - headerSize) + " bytes");
+            }
+            return new NetBuffer(NetManager.NetPacketPool, property, _mtu, false, maxSize);
+        }
+
+        internal NetBuffer CreateNetBuffer(NetPacket p)
+        {
+            NetBuffer buf = new NetBuffer(NetManager.NetPacketPool, p.Property, _mtu, false, p.GetDataSize());
+            buf.Receive(p);
+            return buf;
+        }
+
+        internal NetBuffer CreateNetBuffer(NetPacket[] packets, int totalSize)
+        {
+            if (packets.Length > 0)
+            {
+                NetBuffer buf = new NetBuffer(NetManager.NetPacketPool, packets[0].Property, _mtu, false, totalSize);
+                buf.Receive(packets);
+                return buf;
+            }
+            return null;
+        }
+
+
+        /// <summary>
+        /// Send data to peer
+        /// </summary>
+        /// <param name="buf">Data</param>
+        /// <exception cref="TooBigPacketException">
+        ///     If size exceeds maximum limit:<para/>
+        ///     MTU - headerSize bytes for Unreliable<para/>
+        ///     Fragment count exceeded ushort.MaxValue<para/>
+        /// </exception>
+        public void Send(NetBuffer buf)
+        {
+            buf.Send(this);
+        }
+
+        /// <summary>
         /// Send data to peer
         /// </summary>
         /// <param name="data">Data</param>
@@ -368,9 +430,9 @@ namespace FastNetLib
         ///     MTU - headerSize bytes for Unreliable<para/>
         ///     Fragment count exceeded ushort.MaxValue<para/>
         /// </exception>
-        public void Send(byte[] data, DeliveryMethod options)
+        public void Send(byte[] data, DeliveryMethod options, int channel)
         {
-            Send(data, 0, data.Length, options);
+            Send(data, 0, data.Length, options, channel);
         }
 
         /// <summary>
@@ -384,9 +446,9 @@ namespace FastNetLib
         ///     MTU - headerSize bytes for Unreliable<para/>
         ///     Fragment count exceeded ushort.MaxValue<para/>
         /// </exception>
-        public void Send(NetDataWriter dataWriter, DeliveryMethod options)
+        public void Send(NetDataWriter dataWriter, DeliveryMethod options, int channel)
         {
-            Send(dataWriter.Data, 0, dataWriter.Length, options);
+            Send(dataWriter.Data, 0, dataWriter.Length, options, channel);
         }
 
         /// <summary>
@@ -402,7 +464,7 @@ namespace FastNetLib
         ///     MTU - headerSize bytes for Unreliable<para/>
         ///     Fragment count exceeded ushort.MaxValue<para/>
         /// </exception>
-        public void Send(byte[] data, int start, int length, DeliveryMethod options)
+        public void Send(byte[] data, int start, int length, DeliveryMethod options, int channel)
         {
             if (_connectionState == ConnectionState.ShutdownRequested || 
                 _connectionState == ConnectionState.Disconnected)
@@ -445,11 +507,10 @@ namespace FastNetLib
 
                 int dataOffset = 0;
 
-                lock (_sendLock)
                 {
                     for (ushort i = 0; i < fullPacketsCount; i++)
                     {
-                        NetPacket p = _packetPool.Get(property, 0, packetFullSize);
+                        NetPacket p = _packetPool.Get(property, channel, packetFullSize);
                         p.FragmentId = _fragmentId;
                         p.FragmentPart = i;
                         p.FragmentsTotal = (ushort)totalPackets;
@@ -459,7 +520,7 @@ namespace FastNetLib
                     }
                     if (lastPacketSize > 0)
                     {
-                        NetPacket p = _packetPool.Get(property, 0, lastPacketSize + NetPacket.FragmentHeaderSize);
+                        NetPacket p = _packetPool.Get(property, channel, lastPacketSize + NetPacket.FragmentHeaderSize);
                         p.FragmentId = _fragmentId;
                         p.FragmentPart = (ushort)fullPacketsCount; //last
                         p.FragmentsTotal = (ushort)totalPackets;
@@ -473,7 +534,7 @@ namespace FastNetLib
             }
 
             //Else just send
-            NetPacket packet = _packetPool.GetWithData(property, 0, data, start, length);
+            NetPacket packet = _packetPool.GetWithData(property, channel, data, start, length);
             SendPacket(packet);
         }
 
@@ -547,7 +608,7 @@ namespace FastNetLib
         }
 
         //from user thread, our thread, or recv?
-        private void SendPacket(NetPacket packet)
+        internal void SendPacket(NetPacket packet)
         {
             NetUtils.DebugWrite("[RS]Packet: " + packet.Property);
             switch (packet.Property)
@@ -654,39 +715,42 @@ namespace FastNetLib
                     return;
                 }
 
-                NetUtils.DebugWrite("Received all fragments!");
-                NetPacket resultingPacket = _packetPool.Get( p.Property, 0, incomingFragments.TotalSize );
+                NetBuffer buffer = CreateNetBuffer(fragments, incomingFragments.TotalSize);
 
-                int resultingPacketOffset = 0;
-                int firstFragmentSize = fragments[0].GetDataSize();
-                for (int i = 0; i < incomingFragments.ReceivedCount; i++)
-                {
-                    //Create resulting big packet
-                    int fragmentSize = fragments[i].GetDataSize();
-                    Buffer.BlockCopy(
-                        fragments[i].RawData,
-                        0,
-                        resultingPacket.RawData,
-                        resultingPacketOffset + firstFragmentSize * i,
-                        fragmentSize);
+                //NetUtils.DebugWrite("Received all fragments!");
+                //NetPacket resultingPacket = _packetPool.Get( p.Property, 0, incomingFragments.TotalSize );
 
-                    //Free memory
-                    fragments[i].DontRecycleNow = false;
-                    fragments[i].Recycle();
-                    fragments[i] = null;
-                }
+                //int resultingPacketOffset = 0;
+                //int firstFragmentSize = fragments[0].GetDataSize();
+                //for (int i = 0; i < incomingFragments.ReceivedCount; i++)
+                //{
+                //    //Create resulting big packet
+                //    int fragmentSize = fragments[i].GetDataSize();
+                //    Buffer.BlockCopy(
+                //        fragments[i].RawData,
+                //        0,
+                //        resultingPacket.RawData,
+                //        resultingPacketOffset + firstFragmentSize * i,
+                //        fragmentSize);
+
+                //    //Free memory
+                //    fragments[i].DontRecycleNow = false;
+                //    fragments[i].Recycle();
+                //    fragments[i] = null;
+                //}
 
                 //Send to process
-                _netManager.ReceiveFromPeer(resultingPacket, this);
-                resultingPacket.Recycle();
+                _netManager.ReceiveFromPeer(buffer, this);
+                buffer.Recycle();
 
                 //Clear memory
                 _holdedFragments.Remove(packetFragId);
             }
             else //Just simple packet
             {
-                _netManager.ReceiveFromPeer(p, this);
-                p.Recycle();
+                NetBuffer buffer = CreateNetBuffer(p);
+                _netManager.ReceiveFromPeer(buffer, this);
+                buffer.Recycle();
             }
         }
 
