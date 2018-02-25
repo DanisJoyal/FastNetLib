@@ -485,15 +485,6 @@ namespace FastNetLib
                 // Flush disconnection first
                 //lock (_peers)
                 {
-                    for (int i = 0; i < _peers.Count; i++)
-                    {
-                        NetPeer netPeer = _peers[i];
-                        if (netPeer.ConnectionState == ConnectionState.Disconnected)
-                        {
-                            _peers.RemoveAt(i);
-                        }
-                    }
-
                     //Process acks
                     for (int i = 0; i < _peers.Count; i++)
                     {
@@ -589,6 +580,19 @@ namespace FastNetLib
                 netEvent.AdditionalData = errorCode;
                 EnqueueEvent(netEvent);
                 NetUtils.DebugWriteError("[NM] Receive error: {0}" + errorCode);
+            }
+        }
+
+        internal void RemovePeer(NetPeer peer)
+        {
+            for (int i = 0; i < _peers.Count; i++)
+            {
+                NetPeer netPeer = _peers[i];
+                if (netPeer == peer)
+                {
+                    _peers.RemoveAt(i);
+                    break;
+                }
             }
         }
 

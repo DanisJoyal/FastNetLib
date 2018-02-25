@@ -527,6 +527,7 @@ namespace FastNetLib
             if (force)
             {
                 _connectionState = ConnectionState.Disconnected;
+                _netManager.RemovePeer(this);
                 return true;
             }
 
@@ -841,6 +842,7 @@ namespace FastNetLib
 
                 case PacketProperty.ShutdownOk:
                     _connectionState = ConnectionState.Disconnected;
+                    _netManager.RemovePeer(this);
                     break;
                 
                 default:
