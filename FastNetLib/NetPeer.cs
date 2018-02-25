@@ -368,9 +368,9 @@ namespace FastNetLib
         ///     MTU - headerSize bytes for Unreliable<para/>
         ///     Fragment count exceeded ushort.MaxValue<para/>
         /// </exception>
-        public void Send(byte[] data, DeliveryMethod options)
+        public void Send(byte[] data, DeliveryMethod options, int channel)
         {
-            Send(data, 0, data.Length, options);
+            Send(data, 0, data.Length, options, channel);
         }
 
         /// <summary>
@@ -384,9 +384,9 @@ namespace FastNetLib
         ///     MTU - headerSize bytes for Unreliable<para/>
         ///     Fragment count exceeded ushort.MaxValue<para/>
         /// </exception>
-        public void Send(NetDataWriter dataWriter, DeliveryMethod options)
+        public void Send(NetDataWriter dataWriter, DeliveryMethod options, int channel)
         {
-            Send(dataWriter.Data, 0, dataWriter.Length, options);
+            Send(dataWriter.Data, 0, dataWriter.Length, options, channel);
         }
 
         /// <summary>
@@ -402,7 +402,7 @@ namespace FastNetLib
         ///     MTU - headerSize bytes for Unreliable<para/>
         ///     Fragment count exceeded ushort.MaxValue<para/>
         /// </exception>
-        public void Send(byte[] data, int start, int length, DeliveryMethod options)
+        public void Send(byte[] data, int start, int length, DeliveryMethod options, int channel)
         {
             if (_connectionState == ConnectionState.ShutdownRequested || 
                 _connectionState == ConnectionState.Disconnected)
@@ -449,7 +449,7 @@ namespace FastNetLib
                 {
                     for (ushort i = 0; i < fullPacketsCount; i++)
                     {
-                        NetPacket p = _packetPool.Get(property, 0, packetFullSize);
+                        NetPacket p = _packetPool.Get(property, channel, packetFullSize);
                         p.FragmentId = _fragmentId;
                         p.FragmentPart = i;
                         p.FragmentsTotal = (ushort)totalPackets;
@@ -459,7 +459,7 @@ namespace FastNetLib
                     }
                     if (lastPacketSize > 0)
                     {
-                        NetPacket p = _packetPool.Get(property, 0, lastPacketSize + NetPacket.FragmentHeaderSize);
+                        NetPacket p = _packetPool.Get(property, channel, lastPacketSize + NetPacket.FragmentHeaderSize);
                         p.FragmentId = _fragmentId;
                         p.FragmentPart = (ushort)fullPacketsCount; //last
                         p.FragmentsTotal = (ushort)totalPackets;
@@ -473,7 +473,7 @@ namespace FastNetLib
             }
 
             //Else just send
-            NetPacket packet = _packetPool.GetWithData(property, 0, data, start, length);
+            NetPacket packet = _packetPool.GetWithData(property, channel, data, start, length);
             SendPacket(packet);
         }
 
