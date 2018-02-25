@@ -10,10 +10,10 @@ namespace FastNetLib.Utils
         protected int _dataSize;
         private NetPacket _packet;
 
-        public byte[] Data
-        {
-            get { return _data; }
-        }
+        //public byte[] Data
+        //{
+        //    get { return _data; }
+        //}
         
         public int Length { get { return _dataSize; } }
 
