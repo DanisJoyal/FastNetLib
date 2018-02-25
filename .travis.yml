@@ -1,0 +1,8 @@
+language: csharp
+solution: FastNetLib.sln
+install:
+  - nuget restore FastNetLib.sln
+script:
+  - xbuild /p:Configuration=Release /target:"FastNetLib;LibSample" FastNetLib.sln 
+notifications:
+  email: false

@@ -1,0 +1,28 @@
+image: Visual Studio 2017
+version: 0.8.{build}
+configuration:
+  - Release
+before_build:
+  - nuget restore
+  - cd FastNetLibStandard
+  - dotnet restore
+assembly_info:
+  patch: true
+  file: AssemblyInfo.cs
+  assembly_version: '{version}'
+  assembly_file_version: '{version}'
+build:
+  project: FastNetLib.sln
+test:
+  assemblies:
+    - '**\*.Test.dll'
+artifacts:
+  - path: FastNetLib/bin/Release
+    name: FastNetLib-$(appveyor_build_version)
+    type: Zip
+  - path: FastNetLibStandard/bin/Release
+    name: FastNetLibStandard-$(appveyor_build_version)
+    type: Zip
+  - path: FastNetLibNetCore/bin/Release
+    name: FastNetLibNetCore-$(appveyor_build_version)
+    type: Zip
