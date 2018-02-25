@@ -51,7 +51,7 @@ namespace FastNetLib
         public const int MultiChannelCount = 1;  // Number of channels to initialize
         public const int HeaderSize = NetPacket.HeaderSize;
         public const int SequencedHeaderSize = NetPacket.SequencedHeaderSize;
-        public const int FragmentHeaderSize = NetPacket.FragmentHeaderSize;
+        public const int FragmentHeaderSize = NetPacket.SequencedHeaderSize + NetPacket.FragmentHeaderSize;
         public const int MinPacketDataSize = NetConstants.MinPacketSize - NetPacket.HeaderSize;
         public const int MinSequencedPacketDataSize = NetConstants.MinPacketSize - SequencedHeaderSize;
 

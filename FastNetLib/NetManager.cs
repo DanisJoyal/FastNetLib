@@ -74,6 +74,7 @@ namespace FastNetLib
 
         private int UpdateTime = NetConstants.DefaultUpdateTime;
 
+        private NetPacket _receiveBuffer;
 
         //config section
         /// <summary>
@@ -449,15 +450,13 @@ namespace FastNetLib
             _netEventsPool.Push(evt);
         }
 
-        NetPacket receiveBuffer;
-
         //Update function
         private void UpdateLogic()
         {
             long startNowMs = NetTime.NowMs;
             long timeout = startNowMs + UpdateTime;
-            if (receiveBuffer == null)
-                receiveBuffer = NetPacketPool.Get(PacketProperty.Sequenced, 0, NetConstants.MaxPacketSize);
+            if (_receiveBuffer == null)
+                _receiveBuffer = NetPacketPool.Get(PacketProperty.Sequenced, 0, NetConstants.MaxPacketSize);
             //while (true)
             {
 #if DEBUG
@@ -515,8 +514,8 @@ namespace FastNetLib
 #if STATS_ENABLED
                 Statistics.PacketLoss = totalPacketLoss;
 #endif
-                _socket.Receive(false, receiveBuffer.RawData);
-                _socket.Receive(true, receiveBuffer.RawData);
+                _socket.Receive(false, _receiveBuffer.RawData);
+                _socket.Receive(true, _receiveBuffer.RawData);
 
                 PollEvents();
 
@@ -867,7 +866,7 @@ namespace FastNetLib
             {
                 for (int i = 0; i < _peers.Count; i++)
                 {
-                    _peers[i].Send(data, start, length, options);
+                    _peers[i].Send(data, start, length, options, channel);
                 }
             }
         }
@@ -914,7 +913,7 @@ namespace FastNetLib
                     var netPeer = _peers[i];
                     if (netPeer != excludePeer)
                     {
-                        netPeer.Send(data, start, length, options);
+                        netPeer.Send(data, start, length, options, channel);
                     }
                 }
             }

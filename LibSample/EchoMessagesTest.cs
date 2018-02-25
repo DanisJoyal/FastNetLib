@@ -21,29 +21,29 @@ namespace LibSample
                     dataWriter.Reset();
                     dataWriter.Put(0);
                     dataWriter.Put(i);
-                    peer.Send(dataWriter, DeliveryMethod.ReliableUnordered);
+                    peer.Send(dataWriter, DeliveryMethod.ReliableUnordered, 0);
 
                     dataWriter.Reset();
                     dataWriter.Put(1);
                     dataWriter.Put(i);
-                    peer.Send(dataWriter, DeliveryMethod.ReliableOrdered);
+                    peer.Send(dataWriter, DeliveryMethod.ReliableOrdered, 0);
 
                     dataWriter.Reset();
                     dataWriter.Put(2);
                     dataWriter.Put(i);
-                    peer.Send(dataWriter, DeliveryMethod.Sequenced);
+                    peer.Send(dataWriter, DeliveryMethod.Sequenced, 0);
 
                     dataWriter.Reset();
                     dataWriter.Put(3);
                     dataWriter.Put(i);
-                    peer.Send(dataWriter, DeliveryMethod.Unreliable);
+                    peer.Send(dataWriter, DeliveryMethod.Unreliable, 0);
                 }
 
                 //And test fragment
                 byte[] testData = new byte[13218];
                 testData[0] = 192;
                 testData[13217] = 31;
-                peer.Send(testData, DeliveryMethod.ReliableOrdered);
+                peer.Send(testData, DeliveryMethod.ReliableOrdered, 0);
             }
 
             public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
@@ -119,7 +119,7 @@ namespace LibSample
             public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
             {
                 //echo
-                peer.Send(reader.Data, deliveryMethod);
+                peer.Send(reader.Data, deliveryMethod, channel);
 
                 //fragment log
                 if (reader.AvailableBytes == 13218)

@@ -106,6 +106,12 @@ namespace FastNetLib
             {
                 _nodes.RemoveRange(1, _nodes.Count - 1);
                 _length = _nodes[0].Length;
+                Node[] resizedNodes = _nodes[0];
+                for (int i = 1; i < resizedNodes.Length; i++)
+                {
+                    resizedNodes[i - 1].next = resizedNodes[i];
+                }
+                resizedNodes[resizedNodes.Length - 1].next = resizedNodes[0];
                 _head = _tail = _nodes[0][0];
                 _size = 0;
             }

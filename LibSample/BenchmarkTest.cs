@@ -25,7 +25,6 @@ namespace LibSample
                 _serverListener = new ServerListener();
 
                 NetManager server = new NetManager(_serverListener, _clientCount);
-                server.UnsyncedEvents = true;
                 if (!server.Start(9050))
                 {
                     Console.WriteLine("Server start failed");
@@ -43,7 +42,6 @@ namespace LibSample
                     var client1 = new NetManager(_clientListener);
                     client1.SimulationMaxLatency = 1500;
                     client1.MergeEnabled = true;
-                    client1.UnsyncedEvents = true;
                     _clientListener.Client = client1;
                     if (!client1.Start())
                     {
@@ -168,7 +166,7 @@ namespace LibSample
 
                 Watch.Start();
 
-                peer.Send(testData, DeliveryMethod.ReliableOrdered);
+                peer.Send(testData, DeliveryMethod.ReliableOrdered, 0);
             }
 
             public void Start()
@@ -219,7 +217,7 @@ namespace LibSample
                 MessagesReceivedCount++;
 
                 //echo
-                peer.Send(reader.Data, DeliveryMethod.ReliableUnordered);
+                peer.Send(reader.Data, DeliveryMethod.ReliableUnordered, 0);
             }
 
             public void OnNetworkReceiveUnconnected(NetEndPoint remoteEndPoint, NetDataReader reader, UnconnectedMessageType messageType)

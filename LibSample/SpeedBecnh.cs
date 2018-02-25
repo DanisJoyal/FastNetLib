@@ -102,7 +102,7 @@ namespace LibSample
                 _writer.Put(false);
                 _writer.Put(pData);
 
-                _peer.Send(_writer, DeliveryMethod.Unreliable);
+                _peer.Send(_writer, DeliveryMethod.Unreliable, 0);
                 UnreliableSent++;
             }
 
@@ -112,7 +112,7 @@ namespace LibSample
                 _writer.Put(true);
                 _writer.Put(pData);
 
-                _peer.Send(_writer, DeliveryMethod.ReliableOrdered);
+                _peer.Send(_writer, DeliveryMethod.ReliableOrdered, 0);
                 ReliableSent++;
             }
 
