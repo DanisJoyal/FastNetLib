@@ -26,7 +26,6 @@ namespace LibSample
 
                 NetManager server = new NetManager(_serverListener, _clientCount);
                 server.UnsyncedEvents = true;
-                server.UpdateTime = 1;
                 if (!server.Start(9050))
                 {
                     Console.WriteLine("Server start failed");
@@ -45,7 +44,6 @@ namespace LibSample
                     client1.SimulationMaxLatency = 1500;
                     client1.MergeEnabled = true;
                     client1.UnsyncedEvents = true;
-                    client1.UpdateTime = 1;
                     _clientListener.Client = client1;
                     if (!client1.Start())
                     {
@@ -137,7 +135,7 @@ namespace LibSample
                 Errors++;
             }
 
-            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod)
+            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
             {
                 if (reader.AvailableBytes == testData.Length)
                 {
@@ -216,7 +214,7 @@ namespace LibSample
                 Errors++;
             }
 
-            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod)
+            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
             {
                 MessagesReceivedCount++;
 

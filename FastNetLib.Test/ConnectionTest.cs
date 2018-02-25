@@ -38,8 +38,7 @@ namespace FastNetLib.Test
 
             while (server.PeersCount != 1)
             {
-                Thread.Sleep(15);
-                server.PollEvents();
+                server.Run(15);
             }
 
             Assert.AreEqual(server.PeersCount, 1);
@@ -62,13 +61,12 @@ namespace FastNetLib.Test
 
             while (server.PeersCount != 1)
             {
-                Thread.Sleep(15);
-                server.PollEvents();
+                server.Run(15);
             }
             server.DisconnectPeer(server.GetFirstPeer(), new byte[] {1,2,3,4});
             while (!disconnected)
             {
-                client.PollEvents();
+                client.Run(15);
             }
             Assert.True(disconnected);
         }
@@ -82,8 +80,7 @@ namespace FastNetLib.Test
 
             while (server.PeersCount != 1)
             {
-                Thread.Sleep(15);
-                server.PollEvents();
+                server.Run(15);
             }
 
             Assert.AreEqual(server.PeersCount, 1);
@@ -122,10 +119,8 @@ namespace FastNetLib.Test
 
             while (server.PeersCount < clientCount)
             {
-                server.PollEvents();
-                ManagerStack.ClientForeach((i, manager, l) => manager.PollEvents());
-
-                Thread.Sleep(15);
+                server.Run(10);
+                ManagerStack.ClientForeach((i, manager, l) => manager.Run(1));
             }
 
             Assert.AreEqual(clientCount, server.PeersCount);
@@ -162,8 +157,7 @@ namespace FastNetLib.Test
 
             while (server.PeersCount < clientCount)
             {
-                Thread.Sleep(15);
-                server.PollEvents();
+                server.Run(15);
             }
 
             Assert.AreEqual(server.PeersCount, clientCount);
@@ -172,16 +166,14 @@ namespace FastNetLib.Test
             var dataStack = new Stack<byte[]>(clientCount);
 
             ManagerStack.ClientForeach(
-                (i, manager, l) => l.NetworkReceiveEvent += (peer, reader, type) => dataStack.Push(reader.Data));
+                (i, manager, l) => l.NetworkReceiveEvent += (peer, reader, type, channel) => dataStack.Push(reader.Data));
 
             var data = Encoding.Default.GetBytes("TextForTest");
             server.SendToAll(data, DeliveryMethod.ReliableUnordered);
 
             while (dataStack.Count < clientCount)
             {
-                ManagerStack.ClientForeach((i, manager, l) => manager.PollEvents());
-
-                Thread.Sleep(10);
+                ManagerStack.ClientForeach((i, manager, l) => manager.Run(10));
             }
 
             Assert.AreEqual(dataStack.Count, clientCount);

@@ -72,6 +72,9 @@ namespace FastNetLib
         internal long AvgUpdateTime;
         private long[] _updateTimeFilter;
 
+        private int UpdateTime = NetConstants.DefaultUpdateTime;
+
+
         //config section
         /// <summary>
         /// Enable messages receiving without connection. (with SendUnconnectedMessage method)
@@ -82,11 +85,6 @@ namespace FastNetLib
         /// Enable nat punch messages
         /// </summary>
         public bool NatPunchEnabled = false;
-
-        /// <summary>
-        /// Library logic update and send period in milliseconds
-        /// </summary>
-        public int UpdateTime = NetConstants.DefaultUpdateTime;
 
         /// <summary>
         /// Interval for latency detection and checking connection
@@ -411,9 +409,7 @@ namespace FastNetLib
                     break;
                 case NetEventType.Receive:
                     // Keep backward compatibility
-                    if (evt.Channel == 0)
-                        _netEventListener.OnNetworkReceive(evt.Peer, evt.DataReader, evt.DeliveryMethod);
-                    _netEventListener.OnNetworkReceiveFromChannel(evt.Peer, evt.DataReader, evt.DeliveryMethod, evt.Channel);
+                    _netEventListener.OnNetworkReceive(evt.Peer, evt.DataReader, evt.DeliveryMethod, evt.Channel);
                     break;
                 case NetEventType.ReceiveUnconnected:
                     _netEventListener.OnNetworkReceiveUnconnected(evt.RemoteEndPoint, evt.DataReader, UnconnectedMessageType.BasicMessage);
@@ -1059,20 +1055,8 @@ namespace FastNetLib
         }
 
         /// <summary>
-        /// Receive all pending events. Call this in game update code
+        /// Receive / Send and PollEvents. Game loop needs to call this.
         /// </summary>
-        public void PollEvents()
-        {
-            Run(2);
-            if (UnsyncedEvents)
-                return;
-            _netEventsQueue.Switch();
-            while (_netEventsQueue.Empty() == false)
-            {
-                ProcessEvent(_netEventsQueue.Pop());
-            }
-        }
-
         public void Run(int timeout)
         {
             UpdateTime = timeout;

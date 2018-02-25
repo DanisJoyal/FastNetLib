@@ -164,8 +164,8 @@ namespace LibSample
                 _c1.NatPunchModule.PollEvents();
                 _c2.NatPunchModule.PollEvents();
                 _puncher.NatPunchModule.PollEvents();
-                _c1.PollEvents();
-                _c2.PollEvents();
+                _c1.Run(1);
+                _c2.Run(1);
 
                 //check old peers
                 foreach (var waitPeer in _waitingPeers)

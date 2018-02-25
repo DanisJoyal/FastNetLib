@@ -56,7 +56,7 @@ namespace LibSample
                 Console.WriteLine("[Client] error! " + socketErrorCode);
             }
 
-            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod)
+            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
             {
                 if (reader.AvailableBytes == 13218)
                 {
@@ -116,7 +116,7 @@ namespace LibSample
                 Console.WriteLine("[Server] error: " + socketErrorCode);
             }
 
-            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod)
+            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
             {
                 //echo
                 peer.Send(reader.Data, deliveryMethod);
@@ -200,10 +200,9 @@ namespace LibSample
 
             while (!Console.KeyAvailable)
             {
-                client1.PollEvents();
-                client2.PollEvents();
-                server.PollEvents();
-                Thread.Sleep(15);
+                client1.Run(5);
+                client2.Run(5);
+                server.Run(5);
             }
 
             client1.Stop();

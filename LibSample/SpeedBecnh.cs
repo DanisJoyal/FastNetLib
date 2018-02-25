@@ -18,13 +18,12 @@ namespace LibSample
             public Server()
             {
                 _server = new NetManager(this, 15);
-                _server.UpdateTime = 1;
                 _server.Start(9050);
             }
 
             public void PollEvents()
             {
-                _server.PollEvents();
+                _server.Run(1);
             }
 
             void INetEventListener.OnNetworkError(NetEndPoint endPoint, int socketErrorCode)
@@ -40,7 +39,7 @@ namespace LibSample
                 request.AcceptIfKey("ConnKey");
             }
 
-            void INetEventListener.OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod)
+            void INetEventListener.OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
             {
                 var _isReliable = reader.GetBool();
                 var _data = reader.GetString();
@@ -124,7 +123,7 @@ namespace LibSample
 
             public void PollEvents()
             {
-                _client.PollEvents();
+                _client.Run(15);
             }
 
             void INetEventListener.OnNetworkError(NetEndPoint endPoint, int socketErrorCode)
@@ -140,7 +139,7 @@ namespace LibSample
                 request.AcceptIfKey("ConnKey");
             }
 
-            void INetEventListener.OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod)
+            void INetEventListener.OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
             {
 
             }

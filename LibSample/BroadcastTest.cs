@@ -50,7 +50,7 @@ namespace LibSample
                 request.AcceptIfKey("key");
             }
 
-            public void OnNetworkReceiveFromChannel(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
+            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
             {
                 
             }
@@ -103,7 +103,7 @@ namespace LibSample
                 
             }
 
-            public void OnNetworkReceiveFromChannel(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
+            public void OnNetworkReceive(NetPeer peer, NetDataReader reader, DeliveryMethod deliveryMethod, int channel)
             {
                 
             }
@@ -162,10 +162,9 @@ namespace LibSample
 
             while (!Console.KeyAvailable)
             {
-                client1.PollEvents();
-                client2.PollEvents();
-                server.PollEvents();
-                Thread.Sleep(15);
+                client1.Run(5);
+                client2.Run(5);
+                server.Run(5);
             }
 
             client1.Stop();
