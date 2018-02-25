@@ -97,15 +97,14 @@ namespace FastNetLib
                 byte acksByte = acksData[i];
                 for (int idx = 0; idx < 8; ++idx)
                 {
-                    int currentBit = idx % BitsInByte;
-                    if ((acksByte & (1 << currentBit)) == 0)
+                    if ((acksByte & (1 << idx)) == 0)
                     {
                         // Packet not ack, will be resent automaticaly as needed
                         continue;
                     }
 
                     // packet acknowledged = true
-                    int seqAck = NetUtils.IncrementSequenceNumber(ackWindowStart, idx);
+                    int seqAck = NetUtils.IncrementSequenceNumber(ackWindowStart, i * 8 + idx);
 
                     PendingPacket pendingPacket = _tailPendingPacket;
                     PendingPacket prevPacket = null;
