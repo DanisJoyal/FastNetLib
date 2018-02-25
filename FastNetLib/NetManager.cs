@@ -59,7 +59,7 @@ namespace FastNetLib
         private readonly NetSocket _socket;
         //private readonly Thread _logicThread;
 
-        private readonly SwitchQueue<NetEvent> _netEventsQueue;
+        private readonly FastQueue<NetEvent> _netEventsQueue;
         private readonly Stack<NetEvent> _netEventsPool;
         private readonly INetEventListener _netEventListener;
 
@@ -123,9 +123,9 @@ namespace FastNetLib
         public int SimulationMaxLatency = 100;
 
         /// <summary>
-        /// Experimental feature. Events automatically will be called without PollEvents method from another thread
+        /// Update all the system logic before pushing events. Otherwise, its done as soon that they arrived.
         /// </summary>
-        public bool UnsyncedEvents = true;
+        public bool PollEventsAtTheEnd = true;
 
         /// <summary>
         /// Allows receive DiscoveryRequests
@@ -252,7 +252,7 @@ namespace FastNetLib
             //_logicThread = new Thread(UpdateLogic) { Name = "LogicThread", IsBackground = true };
             _socket = new NetSocket(ReceiveLogic);
             _netEventListener = listener;
-            _netEventsQueue = new SwitchQueue<NetEvent>();
+            _netEventsQueue = new FastQueue<NetEvent>();
             _netEventsPool = new Stack<NetEvent>();
             NetPacketPool = new NetPacketPool();
             NatPunchModule = new NatPunchModule(this);
@@ -364,12 +364,9 @@ namespace FastNetLib
         private NetEvent CreateEvent(NetEventType type)
         {
             NetEvent evt = null;
-            lock (_netEventsPool)
+            if (_netEventsPool.Count > 0)
             {
-                if (_netEventsPool.Count > 0)
-                {
-                    evt = _netEventsPool.Pop();
-                }
+                evt = _netEventsPool.Pop();
             }
             if(evt == null)
             {
@@ -381,15 +378,27 @@ namespace FastNetLib
 
         private void EnqueueEvent(NetEvent evt)
         {
-            if (UnsyncedEvents)
+            if (PollEventsAtTheEnd == false)
             {
                 ProcessEvent(evt);
             }
             else
             {
-                _netEventsQueue.Push(evt);
+                _netEventsQueue.Enqueue(evt);
             }
         }
+
+        private void PollEvents()
+        {
+            if (PollEventsAtTheEnd)
+            {
+                while (_netEventsQueue.Empty == false)
+                {
+                    ProcessEvent(_netEventsQueue.Dequeue());
+                }
+            }
+        }
+
 
         private void ProcessEvent(NetEvent evt)
         {
@@ -437,11 +446,7 @@ namespace FastNetLib
             evt.AdditionalData = 0;
             evt.RemoteEndPoint = null;
             evt.ConnectionRequest = null;
-
-            lock (_netEventsPool)
-            {
-                _netEventsPool.Push(evt);
-            }
+            _netEventsPool.Push(evt);
         }
 
         NetPacket receiveBuffer;
@@ -513,6 +518,7 @@ namespace FastNetLib
                 _socket.Receive(false, receiveBuffer.RawData);
                 _socket.Receive(true, receiveBuffer.RawData);
 
+                PollEvents();
 
                 long currentNowMs = NetTime.NowMs;
 
