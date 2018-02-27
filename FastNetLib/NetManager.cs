@@ -264,9 +264,9 @@ namespace FastNetLib
             _updateTimeFilter = new long[3];
 
             // Precreate all needed Merge Packets
-            NetPacketPool.PoolLimit = maxConnections * 50;
-            NetPacketPool.Prepool(maxConnections * 5, MtuStartIdx >= 0 && MtuStartIdx < NetConstants.PossibleMtu.Length ? NetConstants.PossibleMtu[MtuStartIdx] : (NetConstants.MaxPacketSize - NetConstants.FragmentHeaderSize));
-            NetPacketPool.Prepool(maxConnections * 30, 32);
+            NetPacketPool.PoolLimit = maxConnections * 100;
+            //NetPacketPool.Prepool(maxConnections * 2, MtuStartIdx >= 0 && MtuStartIdx < NetConstants.PossibleMtu.Length ? NetConstants.PossibleMtu[MtuStartIdx] : (NetConstants.MaxPacketSize - NetConstants.FragmentHeaderSize));
+            //NetPacketPool.Prepool(maxConnections * 20, 16);
         }
 
         internal void ConnectionLatencyUpdated(NetPeer fromPeer, int latency)

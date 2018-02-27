@@ -874,7 +874,7 @@ namespace FastNetLib
                 if (_mergeCount > 1)
                 {
                     // build the mergeData
-                    NetPacket _mergeData = _packetPool.Get(PacketProperty.Merged, 0, _mtu - NetPacket.GetHeaderSize(PacketProperty.Merged));
+                    NetPacket _mergeData = _packetPool.Get(PacketProperty.Merged, 0, _mergePos);
                     _mergePos = 0;
                     _mergeCount = 0;
                     while (_mergedPackets.Empty == false)

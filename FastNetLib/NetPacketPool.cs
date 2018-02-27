@@ -8,9 +8,6 @@ namespace FastNetLib
     {
         private readonly FastQueue<NetPacket>[] _pool;
 
-        public int MinimumSize = NetConstants.PossibleMtu[0];
-        public int MaximumSize = NetConstants.PossibleMtu[0];
-        public int Subdivision = 2;
         public int PoolLimit = NetConstants.PoolLimit;
 
         public int newPacketCreated;
@@ -19,13 +16,22 @@ namespace FastNetLib
 
         public bool FreePackets = false;
 
+        // Avoid mixing big packet with small ones. Otherwise, slowly, all packets will become big by NetPacket.Realloc.
+        private static int SectionDivider = 16;
+        private static int[] SectionSize = { 16, 32, 64, 64, 128, 128, 128, 128 };
+
         public NetPacketPool()
         {
-            _pool = new FastQueue<NetPacket>[Subdivision];
-            for(int i = 0; i < Subdivision; ++i)
-            {
-                _pool[i] = new FastQueue<NetPacket>();
-            }
+            _pool = new FastQueue<NetPacket>[9];
+            _pool[0] = new FastQueue<NetPacket>();  // 16
+            _pool[1] = new FastQueue<NetPacket>();  // 32
+            _pool[2] = new FastQueue<NetPacket>();  // 64
+            _pool[3] = _pool[2];                    // 64
+            _pool[4] = new FastQueue<NetPacket>();  // 128
+            _pool[5] = _pool[4];                    // 128
+            _pool[6] = _pool[4];                    // 128
+            _pool[7] = _pool[4];                    // 128
+            _pool[8] = new FastQueue<NetPacket>();  // others
         }
 
         ~NetPacketPool()
@@ -35,7 +41,7 @@ namespace FastNetLib
 
         public bool Dispose(int size)
         {
-            int section = size * Subdivision / MaximumSize;
+            int section = (size - 1) / SectionDivider;
             if (section >= _pool.Length)
                 section = _pool.Length - 1;
             return FreePackets || _pool[section].Count >= PoolLimit;
@@ -57,12 +63,16 @@ namespace FastNetLib
 
         private NetPacket GetPacket(int size, bool clear)
         {
+            // 16, 32, 64, 128, others
             NetPacket packet = null;
+            int packetSize = size;
             if (size <= NetConstants.MaxPacketSize)
             {
-                int section = size * Subdivision / MaximumSize;
+                int section = (size - 1) / SectionDivider;
                 if (section >= _pool.Length)
                     section = _pool.Length - 1;
+                else
+                    packetSize = SectionSize[section];
                 while (packet == null && _pool[section].Empty == false)
                 {
                     packet = _pool[section].Dequeue();
@@ -71,8 +81,7 @@ namespace FastNetLib
             if (packet == null)
             {
                 //allocate new packet
-                //packet = new NetPacket(size < MinimumSize ? MinimumSize : size, this);
-                packet = new NetPacket(size, this);
+                packet = new NetPacket(packetSize, this);
                 packet.Size = size;
                 newPacketCreated++;
             }
@@ -122,15 +131,19 @@ namespace FastNetLib
                 return;
             }
 
+            int packetSize = size;
+            int section = (size - 1) / SectionDivider;
+            if (section >= _pool.Length)
+                section = _pool.Length - 1;
+            else
+                packetSize = SectionSize[section];
+
             for (int i = 0; i < nbPackets; ++i)
             {
                 //allocate new packet
-                NetPacket packet = new NetPacket(size, this);
+                NetPacket packet = new NetPacket(packetSize, this);
                 packet.Size = size;
 
-                int section = packet.RawData.Length * Subdivision / MaximumSize;
-                if (section >= _pool.Length)
-                    section = _pool.Length - 1;
                 if (_pool[section].Count < PoolLimit)
                 {
                     packet.DontRecycleNow = true;
@@ -152,7 +165,7 @@ namespace FastNetLib
             packet.IsFragmented = false;
             if(packet.DontRecycleNow == false)
             {
-                int section = packet.RawData.Length * Subdivision / MaximumSize;
+                int section = (packet.RawData.Length - 1) / SectionDivider;
                 if (section >= _pool.Length)
                     section = _pool.Length - 1;
                 if (_pool[section].Count < PoolLimit)
